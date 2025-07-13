@@ -276,7 +276,7 @@ const ComboManagement: React.FC = () => {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Combo</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Ghi chú</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Mô tả</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-32">
                   Trạng thái
                 </th>
@@ -306,7 +306,7 @@ const ComboManagement: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="font-semibold text-gray-900">{combo.note}</span>
+                    <span className="text-sm">{combo.note}</span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="w-24">{getStatusBadge(combo.status)}</div>
@@ -351,7 +351,7 @@ const ComboManagement: React.FC = () => {
                 <span className="font-semibold">Tên combo:</span> {selectedCombo.name}
               </div>
               <div>
-                <span className="font-semibold">Ghi chú:</span> {selectedCombo.note}
+                <span className="font-semibold">Mô tả:</span> {selectedCombo.note}
               </div>
               <div>
                 <span className="font-semibold">Trạng thái:</span>{" "}
