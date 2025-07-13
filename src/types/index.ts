@@ -12,6 +12,7 @@ export interface Product {
   popularity?: number;
   margin?: number;
   image?: string;
+  sku?:string; 
 }
 
 export interface SelectedProduct extends Product {
@@ -19,12 +20,11 @@ export interface SelectedProduct extends Product {
 }
 
 export interface Combo {
-  id: string;
+  combo_id: string;
   name: string;
-  description?: string;
+  note?: string;
   products: SelectedProduct[];
   totalValue: number;
-  orders: number;
   createdAt: string;
   status: ComboStatus;
 }
@@ -32,7 +32,7 @@ export interface Combo {
 export interface ComboRule {
   id: string;
   name: string;
-  description: string;
+  note: string;
   conditions: RuleCondition[];
   actions: RuleAction[];
   isActive: boolean;
@@ -51,7 +51,7 @@ export interface RuleAction {
 
 export interface ComboPreviewProps {
   name: string;
-  description: string;
+  note: string;
   products: SelectedProduct[];
   originalPrice: number;
   salePrice: number;

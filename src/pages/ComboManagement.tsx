@@ -1,23 +1,54 @@
+import { Calendar, Edit3, Filter, Minus, Plus, Save, Search, Trash2, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import ProductSearchSelect from "../components/ProductSearchSelect";
-import { deleteCombo as apiDeleteCombo, createCombo, fetchCombos, updateCombo } from "../service/comboService";
+import {
+  ComboCreatePayload,
+  ComboListItem,
+  fetchCombos,
+  getProducts,
+  updateCombo,
+  upsertCombo,
+} from "../service/comboService";
 import type { Combo, Product } from "../types";
-import { Calendar, DollarSign, Edit3, Eye, Filter, Minus, Package, Plus, Save, Search, ToggleLeft, ToggleRight, Trash2, Users, X } from "lucide-react";
+
+// 1. Add a utility to convert ComboListItem to Combo for editing
+const comboListItemToCombo = (item: ComboListItem): Combo => ({
+  id: item.id,
+  name: item.name,
+  note: item.note,
+  items: item.items?.map((product) => ({
+    sku: product.sku,
+    name: product.name,
+    price: product.price,
+    category: product.category,
+    stock: 0,
+    quantity: 1,
+  })),
+  totalValue: item.items?.reduce((sum, p) => sum + p.price, 0),
+  createdAt: item.createdAt,
+  status: item.status as "active" | "inactive",
+});
 
 const ComboManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedCombo, setSelectedCombo] = useState<Combo | null>(null);
+  const [selectedCombo, setSelectedCombo] = useState<ComboListItem | null>(null);
   const [editingCombo, setEditingCombo] = useState<Combo | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [combos, setCombos] = useState<Combo[]>([]);
+  const [combos, setCombos] = useState<ComboListItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    getProducts()
+      .then((data) => setProducts(data))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetchCombos()
-      .then((data) => {
-        setCombos(data.products || []);
-      })
+      .then((data) => setCombos(data))
       .catch(() => {});
   }, []);
 
@@ -25,48 +56,54 @@ const ComboManagement: React.FC = () => {
     // ... giữ lại nếu thực sự dùng cho ProductSearchSelect
   ];
 
-  const formatPrice = (price: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       active: { label: "Hoạt động", color: "bg-green-100 text-green-800" },
-      paused: { label: "Tạm dừng", color: "bg-yellow-100 text-yellow-800" },
+      inactive: { label: "Tạm dừng", color: "bg-yellow-100 text-yellow-800" },
     };
     const config = statusConfig[status as keyof typeof statusConfig];
-    return <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${config.color}`}>{config.label}</span>;
+    return (
+      <span
+        className={`inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${config.color}`}
+      >
+        {config.label}
+      </span>
+    );
   };
-
-  const filteredCombos = combos.filter((combo) => {
-    const matchesSearch = combo.name?.toLowerCase()?.includes(searchTerm.toLowerCase()) || combo?.products?.some((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredCombos = combos?.filter((combo) => {
+    const matchesSearch = combo.name?.toLowerCase()?.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || combo.status === statusFilter;
+
     return matchesSearch && matchesStatus;
   });
 
   const toggleComboStatus = (comboId: string) => {
-    setCombos((prev) => prev.map((combo) => combo.id === comboId ? { ...combo, status: combo.status === "active" ? "paused" : "active" } : combo));
+    setCombos((prev) =>
+      prev.map((combo) =>
+        combo.id === comboId
+          ? { ...combo, status: combo.status === "active" ? "inactive" : "active" }
+          : combo
+      )
+    );
   };
 
-  const addProductToEdit = (product: Product) => {
-    if (!editingCombo) return;
-    if (editingCombo.products.find((p) => p.id === product.id)) return;
-    setEditingCombo((prev) => ({ ...prev!, products: [...prev!.products, { ...product, quantity: 1 }] }));
-  };
-
-  const handleDeleteCombo = async (comboId: string | number) => {
-    try {
-      await apiDeleteCombo(String(comboId));
-      setCombos((prev) => prev.filter((combo) => combo.id !== comboId));
-    } catch {}
-  };
-
-  const openDetailModal = (combo: Combo) => {
+  const openDetailModal = (combo: ComboListItem) => {
     setSelectedCombo(combo);
     setShowDetailModal(true);
   };
 
-  const openEditModal = (combo: Combo) => {
-    setEditingCombo({ ...combo });
+  // 2. Fix openEditModal to use Combo type
+  const openEditModal = (combo: ComboListItem) => {
+    setEditingCombo(comboListItemToCombo(combo));
     setShowEditModal(true);
   };
 
@@ -77,34 +114,118 @@ const ComboManagement: React.FC = () => {
     setEditingCombo(null);
   };
 
+  // 3. Add addProductToEdit handler
+  const addProductToEdit = (product: Product) => {
+    if (!editingCombo) return;
+    setEditingCombo((prev) => {
+      if (!prev) return prev;
+      // Avoid duplicates
+      if (prev.items?.some((p) => p.id === product.id)) return prev;
+      return {
+        ...prev,
+        items: [...prev?.items, { ...product, quantity: 1, sku: product.sku }],
+      };
+    });
+  };
+
+  // 4. Fix updateProductQuantity and removeProductFromEdit to use products
   const updateProductQuantity = (productId: string, newQuantity: number) => {
     if (!editingCombo) return;
-    setEditingCombo((prev) => ({ ...prev!, products: prev!.products.map((product) => product.id === productId ? { ...product, quantity: Math.max(1, newQuantity) } : product) }));
-  };
+    if (editingCombo.items.some((item) => item.id === productId)) return;
 
-  const removeProductFromEdit = (productId: string) => {
+    setEditingCombo((prev) => ({
+      ...prev!,
+      items: prev!.items.map((product) =>
+        String(product.id) === productId
+          ? { ...product, quantity: Math.max(1, newQuantity) }
+          : product
+      ),
+    }));
+  };
+  const removeProductFromEdit = (sku: string) => {
     if (!editingCombo) return;
-    setEditingCombo((prev) => ({ ...prev!, products: prev!.products.filter((product) => product.id !== productId) }));
+    setEditingCombo((prev) => ({
+      ...prev!,
+      items: prev!.items.filter((product) => String(product.sku) !== sku),
+    }));
   };
 
+  // 5. Fix calculateEditTotal to use products
   const calculateEditTotal = () => {
     if (!editingCombo) return 0;
-    return editingCombo.products.reduce((total, product) => total + product.price * (product.quantity || 1), 0);
+    return editingCombo.items?.reduce(
+      (total, product) => total + product.price * (product.quantity || 1),
+      0
+    );
   };
 
+  // 6. Fix saveComboChanges to always update ComboListItem[]
   const saveComboChanges = async () => {
     if (!editingCombo) return;
     try {
-      let newCombo: Combo;
+      let newComboListItem: ComboListItem;
       if (!editingCombo.id) {
-        newCombo = await createCombo({ ...editingCombo, totalValue: calculateEditTotal() });
-        setCombos((prev) => [...prev, newCombo]);
+        const payload: ComboCreatePayload = {
+          combo_id: "",
+          created_by: "admin",
+          items: editingCombo.products.map((product) => ({
+            category: product.category,
+            name: product.name,
+            originalPrice: product.price,
+            rating_avg: 0,
+            sku: String(product.id),
+            price: product.price,
+          })),
+          name: editingCombo.name,
+          note: editingCombo.note || "",
+          status: editingCombo.status,
+        };
+        const created = await upsertCombo(payload);
+        // Convert response to ComboListItem if needed
+        newComboListItem = {
+          id: created.id,
+          name: created.name,
+          note: created.note || "",
+          status: created.status,
+          createdAt: created.createdAt || new Date().toISOString(),
+          createdBy: created.createdBy || "admin",
+          items: payload.items,
+        };
+        setCombos((prev) => [...prev, newComboListItem]);
       } else {
-        newCombo = await updateCombo(String(editingCombo.id), { ...editingCombo, totalValue: calculateEditTotal() });
-        setCombos((prev) => prev.map((combo) => (combo.id === editingCombo.id ? newCombo : combo)));
+        // Update
+        delete editingCombo.totalValue;
+        await updateCombo(String(editingCombo.id), {
+          ...editingCombo,
+          items: editingCombo.items.map((product) => ({
+            category: product.category,
+            name: product.name,
+            originalPrice: product.price,
+            rating_avg: 0,
+            sku: String(product.sku),
+            price: product.price,
+          })),
+        });
+
+        // setCombos((prev) =>
+        //   prev.map((combo) => (combo.id === newComboListItem.id ? newComboListItem : combo))
+        // );
       }
+      fetchCombos()
+        .then((data) => setCombos(data))
+        .catch(() => {});
+
+      toast.success("Combo đã được cập nhật thành công!");
+
       closeModals();
-    } catch {}
+    } catch {
+      // handle error
+    }
+  };
+
+  const closeDetailModal = () => {
+    setSelectedCombo(null);
+    setShowDetailModal(false);
   };
 
   return (
@@ -141,7 +262,7 @@ const ComboManagement: React.FC = () => {
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="active">Hoạt động</option>
-                <option value="paused">Tạm dừng</option>
+                <option value="inactive">Tạm dừng</option>
               </select>
             </div>
           </div>
@@ -155,18 +276,14 @@ const ComboManagement: React.FC = () => {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Combo</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                  Tổng giá trị
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                  Đơn hàng
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Ghi chú</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-32">
+                  Trạng thái
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                   Ngày tạo
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-32">
-                  Trạng thái
-                </th>
+
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                   Hành động
                 </th>
@@ -179,68 +296,36 @@ const ComboManagement: React.FC = () => {
                     <div>
                       <h3 className="font-semibold text-gray-900 mb-1">{combo.name}</h3>
                       <div className="text-sm text-gray-600">
-                        {combo.products.map((product, index) => (
-                          <span key={product.id}>
+                        {combo.items?.map((product, index) => (
+                          <span key={product.sku}>
                             {product.name}
-                            {index < combo.products.length - 1 && " + "}
+                            {index < combo.items?.length - 1 && " + "}
                           </span>
                         ))}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="font-semibold text-gray-900">
-                      {formatPrice(combo.totalValue)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <Users className="w-4 h-4 text-gray-400" />
-                      <span className="font-medium">{combo.orders}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{formatDate(combo.createdAt)}</span>
-                    </div>
+                    <span className="font-semibold text-gray-900">{combo.note}</span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="w-24">{getStatusBadge(combo.status)}</div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => openDetailModal(combo)}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-600">{formatDate(combo.created_at)}</span>
+                    </div>
+                  </td>
+
+                  <td className="px-6 py-4">
+                    <div className="flex items-center space-x-2">
                       <button
                         onClick={() => openEditModal(combo)}
                         className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                         title="Chỉnh sửa"
                       >
                         <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => toggleComboStatus(combo.id)}
-                        className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                        title={combo.status === "active" ? "Tạm dừng" : "Kích hoạt"}
-                      >
-                        {combo.status === "active" ? (
-                          <ToggleRight className="w-4 h-4" />
-                        ) : (
-                          <ToggleLeft className="w-4 h-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCombo(combo.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Xóa"
-                      >
-                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -254,66 +339,30 @@ const ComboManagement: React.FC = () => {
       {/* Detail Modal */}
       {showDetailModal && selectedCombo && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Chi tiết Combo</h2>
-                <button onClick={closeModals} className="text-gray-400 hover:text-gray-600">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Chi tiết Combo</h2>
+              <button onClick={closeDetailModal} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
             </div>
-
-            <div className="p-6">
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{selectedCombo.name}</h3>
-                {selectedCombo.description && (
-                  <p className="text-gray-600 mb-4">{selectedCombo.description}</p>
-                )}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="flex items-center space-x-2">
-                    <Package className="w-5 h-5 text-gray-400" />
-                    <span className="text-gray-600">Số sản phẩm:</span>
-                    <span className="font-medium">{selectedCombo.products.length}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Users className="w-5 h-5 text-gray-400" />
-                    <span className="text-gray-600">Đơn hàng:</span>
-                    <span className="font-medium">{selectedCombo.orders}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="w-5 h-5 text-gray-400" />
-                    <span className="text-gray-600">Tổng giá trị:</span>
-                    <span className="font-medium">{formatPrice(selectedCombo.totalValue)}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-5 h-5 text-gray-400" />
-                    <span className="text-gray-600">Ngày tạo:</span>
-                    <span className="font-medium">{formatDate(selectedCombo.createdAt)}</span>
-                  </div>
-                </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <span className="font-semibold">Tên combo:</span> {selectedCombo.name}
+              </div>
+              <div>
+                <span className="font-semibold">Ghi chú:</span> {selectedCombo.note}
+              </div>
+              <div>
+                <span className="font-semibold">Trạng thái:</span>{" "}
                 {getStatusBadge(selectedCombo.status)}
               </div>
-
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Sản phẩm trong combo</h4>
-                <div className="space-y-3">
-                  {selectedCombo.products.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div>
-                        <h5 className="font-medium text-gray-900">{product.name}</h5>
-                        <p className="text-sm text-gray-600">{product.category}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">{formatPrice(product.price)}</p>
-                        <p className="text-sm text-gray-600">Tồn kho: {product.stock}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <span className="font-semibold">Ngày tạo:</span>{" "}
+                {formatDate(selectedCombo.created_at)}
+              </div>
+              <div>
+                <span className="font-semibold">Người tạo:</span> {selectedCombo.createdBy}
               </div>
             </div>
           </div>
@@ -354,9 +403,9 @@ const ComboManagement: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
                     <textarea
-                      value={editingCombo.description || ""}
+                      value={editingCombo.note || ""}
                       onChange={(e) =>
-                        setEditingCombo((prev) => ({ ...prev!, description: e.target.value }))
+                        setEditingCombo((prev) => ({ ...prev!, note: e.target.value }))
                       }
                       placeholder="Mô tả combo..."
                       rows={3}
@@ -373,20 +422,20 @@ const ComboManagement: React.FC = () => {
                       onChange={(e) =>
                         setEditingCombo((prev) => ({
                           ...prev!,
-                          status: e.target.value as "active" | "paused",
+                          status: e.target.value as "active" | "inactive",
                         }))
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="active">Hoạt động</option>
-                      <option value="paused">Tạm dừng</option>
+                      <option value="inactive">Tạm dừng</option>
                     </select>
                   </div>
 
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-4">Thêm sản phẩm</h4>
                     <ProductSearchSelect
-                      products={availableProducts}
+                      products={products}
                       selectedProducts={editingCombo.products}
                       onAddProduct={addProductToEdit}
                       formatPrice={formatPrice}
@@ -396,7 +445,7 @@ const ComboManagement: React.FC = () => {
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-4">Sản phẩm trong combo</h4>
                     <div className="space-y-3">
-                      {editingCombo.products.map((product) => (
+                      {editingCombo?.items?.map((product) => (
                         <div
                           key={product.id}
                           className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
@@ -435,7 +484,7 @@ const ComboManagement: React.FC = () => {
                               <Plus className="w-3 h-3" />
                             </button>
                             <button
-                              onClick={() => removeProductFromEdit(String(product.id))}
+                              onClick={() => removeProductFromEdit(product.sku)}
                               className="ml-4 text-red-500 hover:text-red-600"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -450,9 +499,8 @@ const ComboManagement: React.FC = () => {
                 {/* Sidebar - Price Calculator */}
                 <div className="space-y-6">
                   <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-900 mb-4">Tính toán giá</h4>
                     <div className="space-y-3">
-                      <div className="border-t border-gray-200 pt-3">
+                      <div className="border-gray-200 pt-3">
                         <div className="flex justify-between">
                           <span className="font-semibold text-gray-900">Tổng giá trị:</span>
                           <span className="text-xl font-bold text-blue-600">

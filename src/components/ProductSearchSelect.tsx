@@ -26,9 +26,8 @@ const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({
   // Filter products based on search and category
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
     const notSelected = !selectedProducts?.find((p) => p.id === product.id);
-    return matchesSearch && matchesCategory && notSelected;
+    return matchesSearch && notSelected;
   });
 
   // Handle click outside to close dropdown
@@ -133,23 +132,6 @@ const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({
         </div>
       </div>
 
-      {/* Category Filter */}
-      <div className="mt-3 flex flex-wrap gap-2">
-        {categories.map((category) => (
-          <button
-            key={category.id}
-            onClick={() => setSelectedCategory(category.id)}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-              selectedCategory === category.id
-                ? "bg-blue-100 text-blue-800 border border-blue-200"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-transparent"
-            }`}
-          >
-            {category.name}
-          </button>
-        ))}
-      </div>
-
       {/* Dropdown */}
       {isOpen && (
         <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
@@ -186,12 +168,6 @@ const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({
                       </div>
                       <div className="flex items-center space-x-4 text-sm text-gray-600">
                         <span className="font-medium">{formatPrice(product.price)}</span>
-                        <span className="flex items-center space-x-1">
-                          <span>Tồn:</span>
-                          <span className={product.stock < 50 ? "text-red-600 font-medium" : ""}>
-                            {product.stock}
-                          </span>
-                        </span>
                       </div>
                     </div>
                     <button className="ml-3 p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0">

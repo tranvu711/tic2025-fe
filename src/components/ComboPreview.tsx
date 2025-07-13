@@ -1,32 +1,32 @@
-import React from 'react';
-import { Package, TrendingUp, Users, DollarSign } from 'lucide-react';
-import type { ComboPreviewProps } from '../types';
+import { DollarSign, Package, TrendingUp } from "lucide-react";
+import React from "react";
+import type { ComboPreviewProps } from "../types";
 
 const ComboPreview: React.FC<ComboPreviewProps> = ({
   name,
-  description,
+  note,
   products,
   originalPrice,
   salePrice,
   discount,
   targetSegment,
   expectedConversion,
-  expectedROI
+  expectedROI,
 }) => {
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
     }).format(price);
   };
 
   const getSegmentName = (segment: string) => {
     const segments: { [key: string]: string } = {
-      'all': 'Tất cả khách hàng',
-      'family': 'Gia đình',
-      'student': 'Sinh viên',
-      'professional': 'Doanh nghiệp',
-      'creator': 'Creator/Designer'
+      all: "Tất cả khách hàng",
+      family: "Gia đình",
+      student: "Sinh viên",
+      professional: "Doanh nghiệp",
+      creator: "Creator/Designer",
     };
     return segments[segment] || segment;
   };
@@ -45,9 +45,7 @@ const ComboPreview: React.FC<ComboPreviewProps> = ({
       </div>
 
       {/* Description */}
-      {description && (
-        <p className="text-sm text-gray-600 mb-4">{description}</p>
-      )}
+      {note && <p className="text-sm text-gray-600 mb-4">{note}</p>}
 
       {/* Products */}
       <div className="space-y-2 mb-4">
