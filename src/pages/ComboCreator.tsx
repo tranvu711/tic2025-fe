@@ -1,155 +1,135 @@
-import React, { useState } from 'react';
-import { Plus, Minus, Zap, Calculator, Target, AlertCircle, TrendingUp, Users, DollarSign, Package, Sparkles, Brain, BarChart3, Search, X, ChevronDown, ShoppingCart, Tag, Layers } from 'lucide-react';
-import ProductSearchSelect from '../components/ProductSearchSelect';
-import type { Product, SelectedProduct } from '../types';
+import {
+  AlertCircle,
+  Brain,
+  ChevronDown,
+  Minus,
+  Package,
+  Plus,
+  Search,
+  ShoppingCart,
+  Sparkles,
+  Tag,
+  Target,
+  X,
+  Zap,
+} from "lucide-react";
+import React, { useState } from "react";
+import { toast } from "react-toastify";
+import ProductSearchSelect from "../components/ProductSearchSelect";
+import { ComboSuggestion, createCombo, fetchSuggestedCombos } from "../service/comboService";
+import type { Combo, Product, SelectedProduct } from "../types";
 
-interface ComboRuleCreator {
-  id: string;
-  name: string;
-  description: string;
-  suggestedProducts: string[];
-  minProducts: number;
-  maxProducts: number;
-  suggestedDiscount: number;
-  targetSegment: string;
-}
+type ComboCreateInput = Omit<Combo, "id">;
 
 const ComboCreator: React.FC = () => {
-  const [comboName, setComboName] = useState('');
-  const [comboDescription, setComboDescription] = useState('');
+  const [comboName, setComboName] = useState("");
+  const [comboDescription, setComboDescription] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [showAIRules, setShowAIRules] = useState(false);
+  const [suggestions, setSuggestions] = useState<ComboSuggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [errorSuggestions, setErrorSuggestions] = useState<string | null>(null);
 
   const mockProducts: Product[] = [
-    { id: '1', name: 'iPhone 15 Pro', price: 29990000, category: 'Electronics', stock: 50 },
-    { id: '2', name: 'MacBook Air M2', price: 28990000, category: 'Electronics', stock: 30 },
-    { id: '3', name: 'AirPods Pro', price: 6490000, category: 'Electronics', stock: 100 },
-    { id: '4', name: 'iPad Air', price: 14990000, category: 'Electronics', stock: 25 },
-    { id: '5', name: 'Apple Watch Series 9', price: 9990000, category: 'Electronics', stock: 75 },
-  ];
-
-  const aiComboRules: ComboRuleCreator[] = [
-    {
-      id: '1',
-      name: 'Combo Apple Ecosystem Pro',
-      description: 'Bộ sản phẩm Apple hoàn chỉnh cho người dùng chuyên nghiệp',
-      suggestedProducts: ['1', '2', '3'], // iPhone 15 Pro + MacBook Air M2 + AirPods Pro
-      minProducts: 3,
-      maxProducts: 5,
-      suggestedDiscount: 15,
-      targetSegment: 'Chuyên gia công nghệ'
-    },
-    {
-      id: '2', 
-      name: 'Combo Sinh viên Thông minh',
-      description: 'Gói sản phẩm học tập hiệu quả dành cho sinh viên',
-      suggestedProducts: ['4', '5'], // iPad Air + Apple Watch Series 9
-      minProducts: 2,
-      maxProducts: 3,
-      suggestedDiscount: 20,
-      targetSegment: 'Sinh viên'
-    },
-    {
-      id: '3',
-      name: 'Combo Làm việc từ xa',
-      description: 'Bộ công cụ hoàn hảo cho làm việc từ xa hiệu quả',
-      suggestedProducts: ['2', '3'], // MacBook Air M2 + AirPods Pro
-      minProducts: 2,
-      maxProducts: 3,
-      suggestedDiscount: 12,
-      targetSegment: 'Nhân viên văn phòng'
-    },
-    {
-      id: '4',
-      name: 'Combo Creator Content',
-      description: 'Bộ sản phẩm chuyên nghiệp cho nhà sáng tạo nội dung',
-      suggestedProducts: ['1', '4', '5'], // iPhone 15 Pro + iPad Air + Apple Watch Series 9
-      minProducts: 3,
-      maxProducts: 4,
-      suggestedDiscount: 18,
-      targetSegment: 'Content Creator'
-    }
+    { id: "1", name: "iPhone 15 Pro", price: 29990000, category: "Electronics", stock: 50 },
+    { id: "2", name: "MacBook Air M2", price: 28990000, category: "Electronics", stock: 30 },
+    { id: "3", name: "AirPods Pro", price: 6490000, category: "Electronics", stock: 100 },
+    { id: "4", name: "iPad Air", price: 14990000, category: "Electronics", stock: 25 },
+    { id: "5", name: "Apple Watch Series 9", price: 9990000, category: "Electronics", stock: 75 },
   ];
 
   const handleProductSelect = (product: Product) => {
-    const existingProduct = selectedProducts.find(p => p.id === product.id);
+    const existingProduct = selectedProducts.find((p) => p.id === product.id);
     if (existingProduct) {
-      setSelectedProducts(prev => 
-        prev.map(p => 
-          p.id === product.id 
-            ? { ...p, quantity: p.quantity + 1 }
-            : p
-        )
+      setSelectedProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p))
       );
     } else {
-      setSelectedProducts(prev => [...prev, { ...product, quantity: 1 }]);
+      setSelectedProducts((prev) => [...prev, { ...product, quantity: 1 }]);
     }
   };
 
   const handleQuantityChange = (productId: string, change: number) => {
-    setSelectedProducts(prev => 
-      prev.map(p => 
-        p.id === productId 
-          ? { ...p, quantity: Math.max(1, p.quantity + change) }
-          : p
-      ).filter(p => p.quantity > 0)
+    setSelectedProducts((prev) =>
+      prev
+        .map((p) => (p.id === productId ? { ...p, quantity: Math.max(1, p.quantity + change) } : p))
+        .filter((p) => p.quantity > 0)
     );
   };
 
   const handleRemoveProduct = (productId: string) => {
-    setSelectedProducts(prev => prev.filter(p => p.id !== productId));
+    setSelectedProducts((prev) => prev.filter((p) => p.id !== productId));
   };
 
-  const totalValue = selectedProducts.reduce((sum, product) => sum + (product.price * product.quantity), 0);
+  const totalValue = selectedProducts.reduce(
+    (sum, product) => sum + product.price * product.quantity,
+    0
+  );
   const totalQuantity = selectedProducts.reduce((sum, product) => sum + product.quantity, 0);
-  const uniqueCategories = [...new Set(selectedProducts.map(p => p.category))];
+  const uniqueCategories = [...new Set(selectedProducts.map((p) => p.category))];
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
     }).format(price);
   };
 
-  const handleCreateCombo = () => {
+  const handleCreateCombo = async () => {
     if (selectedProducts.length < 2) {
-      alert('Combo cần ít nhất 2 sản phẩm');
+      toast.error("Combo cần ít nhất 2 sản phẩm");
       return;
     }
-    
-    const combo = {
+
+    const combo: ComboCreateInput = {
       name: comboName,
       description: comboDescription,
       products: selectedProducts,
       totalValue,
-      createdAt: new Date().toLocaleDateString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      })
+      createdAt: new Date().toISOString(),
+      status: "active",
+      orders: 0,
     };
-    
-    console.log('Creating combo:', combo);
-    alert('Combo đã được tạo thành công!');
+
+    try {
+      await createCombo(combo as unknown as Combo);
+      toast.success("Combo đã được tạo thành công!");
+      setComboName("");
+      setComboDescription("");
+      setSelectedProducts([]);
+    } catch {
+      toast.error("Tạo combo thất bại!");
+    }
   };
 
-  const applyAIRule = (rule: ComboRuleCreator) => {
-    // Set combo name and description
-    setComboName(rule.name);
-    setComboDescription(rule.description);
-    
-    // Find and add suggested products to selected list
-    const suggestedProducts = rule.suggestedProducts
-      .map(productId => mockProducts.find(p => p.id === productId))
-      .filter(Boolean) as Product[];
-    
-    // Clear current selection and add suggested products with quantity 1
-    setSelectedProducts(suggestedProducts.map(product => ({
-      ...product,
-      quantity: 1
-    })));
-    
-    // Close AI suggestions dropdown
+  const handleShowAIRules = async () => {
+    setShowAIRules((prev) => !prev);
+    if (!showAIRules) {
+      setLoadingSuggestions(true);
+      setErrorSuggestions(null);
+      try {
+        const data = await fetchSuggestedCombos();
+        setSuggestions(data);
+      } catch {
+        setErrorSuggestions("Không thể lấy gợi ý combo");
+      }
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const applyAISuggestion = (suggestion: ComboSuggestion) => {
+    setComboName(suggestion.combo_name);
+    setComboDescription(suggestion.rationale);
+    setSelectedProducts(
+      suggestion.items.map((item) => ({
+        id: item.sku,
+        name: item.name,
+        price: item.unitPriceAfterTax,
+        category: item.category,
+        stock: 0,
+        quantity: 1,
+      }))
+    );
     setShowAIRules(false);
   };
 
@@ -180,12 +160,10 @@ const ComboCreator: React.FC = () => {
               <Target className="w-5 h-5 text-blue-600" />
               Thông Tin Combo
             </h2>
-            
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tên Combo
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tên Combo</label>
                 <input
                   type="text"
                   value={comboName}
@@ -194,11 +172,9 @@ const ComboCreator: React.FC = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mô Tả
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mô Tả</label>
                 <textarea
                   value={comboDescription}
                   onChange={(e) => setComboDescription(e.target.value)}
@@ -209,7 +185,6 @@ const ComboCreator: React.FC = () => {
               </div>
             </div>
           </div>
-
         </div>
 
         {/* Right Column - Product Management */}
@@ -221,15 +196,17 @@ const ComboCreator: React.FC = () => {
                 <Search className="w-5 h-5 text-blue-600" />
                 Quản Lý Sản Phẩm
               </h2>
-              
+
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowAIRules(!showAIRules)}
+                  onClick={handleShowAIRules}
                   className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2"
                 >
                   <Brain className="w-4 h-4" />
                   AI Gợi Ý
-                  <ChevronDown className={`w-4 h-4 transition-transform ${showAIRules ? 'rotate-180' : ''}`} />
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${showAIRules ? "rotate-180" : ""}`}
+                  />
                 </button>
               </div>
             </div>
@@ -241,26 +218,31 @@ const ComboCreator: React.FC = () => {
                   <Sparkles className="w-4 h-4 text-purple-600" />
                   Gợi Ý Combo Thông Minh
                 </h3>
-                <div className="space-y-2">
-                  {aiComboRules.map(rule => (
-                    <div
-                      key={rule.id}
-                      onClick={() => applyAIRule(rule)}
-                      className="bg-white rounded-lg p-3 border border-purple-100 hover:border-purple-300 cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-gray-900">{rule.name}</div>
-                          <div className="text-sm text-gray-600">{rule.description}</div>
-                          <div className="text-xs text-purple-600 mt-1">
-                            {rule.minProducts}-{rule.maxProducts} sản phẩm • Giảm {rule.suggestedDiscount}% • {rule.targetSegment}
+                {loadingSuggestions ? (
+                  <div className="text-center py-4">Đang tải gợi ý...</div>
+                ) : errorSuggestions ? (
+                  <div className="text-center py-4 text-red-600">{errorSuggestions}</div>
+                ) : suggestions.length === 0 ? (
+                  <div className="text-center py-4">Không có gợi ý nào.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {suggestions.map((suggestion, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => applyAISuggestion(suggestion)}
+                        className="bg-white rounded-lg p-3 border border-purple-100 hover:border-purple-300 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">{suggestion.combo_name}</div>
+                            <div className="text-sm text-gray-600">{suggestion.rationale}</div>
                           </div>
+                          <Zap className="w-5 h-5 text-purple-600" />
                         </div>
-                        <Zap className="w-5 h-5 text-purple-600" />
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -268,8 +250,7 @@ const ComboCreator: React.FC = () => {
               products={mockProducts}
               selectedProducts={selectedProducts}
               onAddProduct={handleProductSelect}
-             formatPrice={formatPrice}
-              placeholder="Tìm kiếm sản phẩm để thêm vào combo..."
+              formatPrice={formatPrice}
             />
           </div>
 
@@ -300,7 +281,7 @@ const ComboCreator: React.FC = () => {
               {uniqueCategories.length > 0 && (
                 <div className="mb-4">
                   <div className="flex flex-wrap gap-2">
-                    {uniqueCategories.map(category => (
+                    {uniqueCategories.map((category) => (
                       <span
                         key={category}
                         className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full"
@@ -334,7 +315,7 @@ const ComboCreator: React.FC = () => {
               ) : null}
 
               <div className="space-y-3">
-                {selectedProducts.map(product => (
+                {selectedProducts.map((product) => (
                   <div
                     key={product.id}
                     className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition-colors"
@@ -347,7 +328,9 @@ const ComboCreator: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-gray-900 truncate">{product.name}</h4>
                           <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <span className="px-2 py-1 bg-gray-200 rounded text-xs">{product.category}</span>
+                            <span className="px-2 py-1 bg-gray-200 rounded text-xs">
+                              {product.category}
+                            </span>
                             <span>•</span>
                             <span>{formatPrice(product.price)}</span>
                             <span>•</span>
@@ -355,11 +338,11 @@ const ComboCreator: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <div className="flex items-center gap-1 bg-white rounded-lg border border-gray-300">
                           <button
-                            onClick={() => handleQuantityChange(product.id, -1)}
+                            onClick={() => handleQuantityChange(String(product.id), -1)}
                             className="p-2 hover:bg-gray-50 rounded-l-lg transition-colors"
                           >
                             <Minus className="w-4 h-4 text-gray-600" />
@@ -368,21 +351,21 @@ const ComboCreator: React.FC = () => {
                             {product.quantity}
                           </span>
                           <button
-                            onClick={() => handleQuantityChange(product.id, 1)}
+                            onClick={() => handleQuantityChange(String(product.id), 1)}
                             className="p-2 hover:bg-gray-50 rounded-r-lg transition-colors"
                           >
                             <Plus className="w-4 h-4 text-gray-600" />
                           </button>
                         </div>
-                        
+
                         <div className="text-right min-w-[6rem]">
                           <div className="font-semibold text-green-600">
                             {formatPrice(product.price * product.quantity)}
                           </div>
                         </div>
-                        
+
                         <button
-                          onClick={() => handleRemoveProduct(product.id)}
+                          onClick={() => handleRemoveProduct(String(product.id))}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <X className="w-4 h-4" />

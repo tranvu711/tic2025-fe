@@ -22,7 +22,6 @@ export interface Combo {
   id: string;
   name: string;
   description?: string;
-  description?: string;
   products: SelectedProduct[];
   totalValue: number;
   orders: number;
@@ -67,9 +66,4 @@ export interface ProductSearchSelectProps {
   selectedProducts: SelectedProduct[];
   onAddProduct: (product: Product) => void;
   formatPrice: (price: number) => string;
-}
-
-export interface SidebarProps {
-  currentPage: Page;
-  onPageChange: (page: Page) => void;
 }

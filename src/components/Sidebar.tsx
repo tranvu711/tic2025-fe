@@ -1,17 +1,13 @@
-import React from 'react';
-import { 
-  ShoppingCart, 
-  Zap, 
-  Package
-} from 'lucide-react';
-import type { Page, SidebarProps } from '../types';
+import { Package, ShoppingCart, Zap } from "lucide-react";
+import React from "react";
+import { NavLink } from "react-router-dom";
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
-  const menuItems = [
-    { id: 'combo-creator', label: 'Tạo Combo thông minh', icon: Zap },
-    { id: 'combo-management', label: 'Quản lý Combo', icon: Package },
-  ];
+const menuItems = [
+  { id: "combo-creator", label: "Tạo Combo thông minh", icon: Zap, path: "/combo-creator" },
+  { id: "combo-management", label: "Quản lý Combo", icon: Package, path: "/combo-management" },
+];
 
+const Sidebar: React.FC = () => {
   return (
     <div className="fixed left-0 top-0 h-full w-64 bg-white shadow-xl border-r border-gray-200">
       <div className="p-6 border-b border-gray-200">
@@ -25,26 +21,25 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           </div>
         </div>
       </div>
-      
+
       <nav className="p-4">
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentPage === item.id;
-            
             return (
               <li key={item.id}>
-                <button
-                  onClick={() => onPageChange(item.id as Page)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
+                <NavLink
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ` +
+                    (isActive
+                      ? "bg-blue-50 text-blue-700 shadow-sm"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900")
+                  }
                 >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600' : ''}`} />
+                  <Icon className={`w-5 h-5`} />
                   <span className="font-medium text-sm">{item.label}</span>
-                </button>
+                </NavLink>
               </li>
             );
           })}

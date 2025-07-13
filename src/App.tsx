@@ -1,32 +1,23 @@
-import React, { useState } from 'react';
-import Sidebar from './components/Sidebar';
-import ComboCreator from './pages/ComboCreator';
-import ComboManagement from './pages/ComboManagement';
-import type { Page } from './types';
+import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import Sidebar from "./components/Sidebar";
+import ComboCreator from "./pages/ComboCreator";
+import ComboManagement from "./pages/ComboManagement";
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('combo-creator');
-
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'combo-creator':
-        return <ComboCreator />;
-      case 'combo-management':
-        return <ComboManagement />;
-      default:
-        return <ComboCreator />;
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
-      <main className="flex-1 ml-64">
-        <div className="p-8">
-          {renderPage()}
-        </div>
+    <Router>
+      <Sidebar />
+      <main className="ml-64 min-h-screen bg-gray-50">
+        <Routes>
+          <Route path="/combo-creator" element={<ComboCreator />} />
+          <Route path="/combo-management" element={<ComboManagement />} />
+          <Route path="*" element={<Navigate to="/combo-creator" replace />} />
+        </Routes>
       </main>
-    </div>
+      <ToastContainer position="top-right" autoClose={2000} />
+    </Router>
   );
 }
 
