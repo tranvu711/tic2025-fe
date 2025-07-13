@@ -13,10 +13,15 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import ProductSearchSelect from "../components/ProductSearchSelect";
-import { ComboSuggestion, createCombo, fetchSuggestedCombos } from "../service/comboService";
+import {
+  ComboSuggestion,
+  createCombo,
+  fetchSuggestedCombos,
+  getProducts,
+} from "../service/comboService";
 import type { Combo, Product, SelectedProduct } from "../types";
 
 type ComboCreateInput = Omit<Combo, "id">;
@@ -29,14 +34,13 @@ const ComboCreator: React.FC = () => {
   const [suggestions, setSuggestions] = useState<ComboSuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [errorSuggestions, setErrorSuggestions] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
 
-  const mockProducts: Product[] = [
-    { id: "1", name: "iPhone 15 Pro", price: 29990000, category: "Electronics", stock: 50 },
-    { id: "2", name: "MacBook Air M2", price: 28990000, category: "Electronics", stock: 30 },
-    { id: "3", name: "AirPods Pro", price: 6490000, category: "Electronics", stock: 100 },
-    { id: "4", name: "iPad Air", price: 14990000, category: "Electronics", stock: 25 },
-    { id: "5", name: "Apple Watch Series 9", price: 9990000, category: "Electronics", stock: 75 },
-  ];
+  useEffect(() => {
+    getProducts()
+      .then((data) => setProducts(data))
+      .catch(() => {});
+  }, []);
 
   const handleProductSelect = (product: Product) => {
     const existingProduct = selectedProducts.find((p) => p.id === product.id);
@@ -247,7 +251,7 @@ const ComboCreator: React.FC = () => {
             )}
 
             <ProductSearchSelect
-              products={mockProducts}
+              products={products}
               selectedProducts={selectedProducts}
               onAddProduct={handleProductSelect}
               formatPrice={formatPrice}

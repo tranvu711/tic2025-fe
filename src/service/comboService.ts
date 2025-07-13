@@ -18,7 +18,7 @@ export interface ComboSuggestion {
 }
 
 export async function fetchCombos() {
-  const response = await fetch('https://dummyjson.com/products');
+  const response = await fetch('http://192.168.0.11:8080/combos');
   if (!response.ok) throw new Error('Failed to fetch combos');
   return response.json();
 }
@@ -66,4 +66,12 @@ export async function fetchSuggestedCombos(payload?: Record<string, unknown>) {
   if (!response.ok) throw new Error('Failed to fetch suggested combos');
   const data = await response.json();
   return data.suggestions as ComboSuggestion[];
+}
+
+export async function getProducts() {
+  const response = await fetch('https://dummyjson.com/products');
+  if (!response.ok) throw new Error('Failed to fetch products');
+  const data = await response.json();
+  // Trả về mảng sản phẩm, giả sử data.products
+  return data.products;
 } 
